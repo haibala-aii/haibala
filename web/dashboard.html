@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>haibala · 签发台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#e7e9ee;--paper:#f7f8fa;--ink:#141820;--muted:#5b6270;--line:#d2d6de;--stamp:#c81e5c;--ok:#1f7a4d;--warn:#b45309;--bad:#b42318;--navy:#1e3a5f;--radius:8px}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"IBM Plex Sans","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);font-size:13.5px;line-height:1.5;min-height:100vh}
+  .app{max-width:1240px;margin:0 auto;padding:16px 20px 52px}
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .brand{display:flex;align-items:baseline;gap:10px}.brand b{font-size:18px;letter-spacing:-.03em}.brand span{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted)}
+  .live{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+  .btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:var(--radius);border:1px solid var(--line);background:#fff;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+  .btn:hover{background:#eef0f4}.btn.pri{background:var(--ink);color:#fff;border-color:var(--ink)}.btn.stamp{background:var(--stamp);color:#fff;border-color:var(--stamp)}.btn.bad{background:var(--bad);color:#fff;border-color:var(--bad)}.btn.sm{height:30px;font-size:12px;padding:0 10px}
+  nav.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+  nav.tabs a{padding:10px 12px;text-decoration:none;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;cursor:pointer}
+  nav.tabs a.on,nav.tabs a:hover{color:var(--ink)} nav.tabs a.on{border-bottom-color:var(--stamp)}
+  .count{display:inline-block;min-width:16px;height:16px;padding:0 4px;margin-left:4px;border-radius:99px;background:var(--stamp);color:#fff;font-size:10px;text-align:center;line-height:16px}
+  .view{display:none}.view.on{display:block}
+  .strip{display:grid;grid-template-columns:repeat(4,1fr) minmax(180px,1.2fr);gap:8px;margin-bottom:14px}
+  .stat{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .stat .k{font-size:11px;color:var(--muted)}.stat .v{font-size:20px;font-weight:700;letter-spacing:-.03em;margin-top:2px}
+  .stat.warn .v{color:var(--warn)}.stat.bad .v{color:var(--bad)}.stat.ok .v{color:var(--ok)}
+  .budget{display:flex;flex-direction:column;justify-content:center}.budget .bar{height:8px;background:#dce0e6;border-radius:99px;overflow:hidden;margin-top:6px}.budget .bar i{display:block;height:100%;width:60%;background:var(--stamp)}
+  .split{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:14px}
+  .paper{background:var(--paper);border:1px solid var(--line);border-radius:12px}
+  .queue{padding:8px;max-height:calc(100vh - 300px);overflow:auto}
+  .q-h{display:flex;justify-content:space-between;padding:8px 8px 10px;font-size:12px;color:var(--muted)}
+  .ticket{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-left:3px solid #94a3b8;border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+  .ticket.on{border-color:var(--ink);border-left-color:var(--stamp)}.ticket .t{font-weight:600;font-size:13px}.ticket .m{font-size:11px;color:var(--muted);margin-top:3px;font-family:"IBM Plex Mono",monospace}
+  .form{position:relative;padding:22px;overflow:hidden;background:#fff}
+  .form:before,.form:after{content:"";position:absolute;left:-7px;width:14px;height:14px;border-radius:50%;background:var(--bg);border:1px solid var(--line)}
+  .form:before{top:36px}.form:after{bottom:36px}
+  .meta{display:flex;justify-content:space-between;gap:8px;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted)}
+  .seal{display:inline-block;border:2px solid var(--stamp);color:var(--stamp);padding:6px 10px;font-weight:700;letter-spacing:.12em;font-size:12px;transform:rotate(-2deg);margin:8px 0}
+  .seal.ok{border-color:var(--ok);color:var(--ok)}.seal.warn{border-color:var(--warn);color:var(--warn)}.seal.muted{border-color:#94a3b8;color:#64748b}
+  h1{font-size:20px;letter-spacing:-.03em;margin:10px 0 6px;font-weight:700}.desc{color:var(--muted)}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;margin:12px 0}.fields .lab{display:block;font-size:11px;color:var(--muted);font-weight:500}
+  .reason{font-family:"IBM Plex Mono",monospace;font-size:12px;background:#f4f5f7;border:1px dashed #c9ced8;padding:12px;border-radius:6px;color:#2a3140;margin:10px 0}
+  .src{margin-top:6px;color:var(--stamp);font-size:11px}.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+  .chips span,.chip{display:inline-block;background:#eef0f4;border-radius:999px;padding:2px 8px;font-size:11px;margin:0 4px 4px 0;border:0;color:var(--ink)}
+  .chip.on{background:var(--ink);color:#fff}
+  .panel{padding:16px;margin-bottom:12px}.panel h2{font-size:15px;margin:0 0 12px;letter-spacing:-.02em}
+  .stk{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px;background:#fff;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+  .badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600}
+  .b-run{background:#e8f6ee;color:var(--ok)}.b-wait{background:#fff4e5;color:var(--warn)}.b-bad{background:#fde8e6;color:var(--bad)}.b-done{background:#e8eef8;color:var(--navy)}
+  table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-size:12.5px;vertical-align:top}
+  th{color:var(--muted);font-weight:500}
+  .foot{font-size:11px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+  .audit li{list-style:none;display:grid;grid-template-columns:118px 84px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  .audit .ts,.audit .tg{font-family:"IBM Plex Mono",monospace;color:var(--muted)}
+  .alert{border:1px solid #f0d3a8;background:#fff8ee;border-radius:8px;padding:12px;margin-bottom:10px}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+  input,textarea{height:36px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:#fff;font-size:13px;width:100%;font-family:inherit;margin-bottom:8px}
+  @media(max-width:960px){.strip{grid-template-columns:1fr 1fr}.split{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="brand"><b>haibala</b><span>签发台</span></div>
+    <div class="live"><span class="dot" aria-hidden="true"></span>核心在线 · 本地 · 数据不出机</div>
+  </header>
+  <nav class="tabs">
+    <a class="on" data-v="dash">总览</a>
+    <a data-v="job">任务</a>
+    <a data-v="eval">评测</a>
+    <a data-v="audit">审计</a>
+    <a data-v="approvals">审批<span class="count" id="apc">0</span></a>
+    <a data-v="set">设置</a>
+  </nav>
+
+  <section class="view on" id="dash">
+    <div class="strip">
+      <div class="stat"><div class="k">进行中</div><div class="v" id="s-run">0</div></div>
+      <div class="stat warn"><div class="k">待盖章</div><div class="v" id="s-ap">0</div></div>
+      <div class="stat ok"><div class="k">已完成</div><div class="v" id="s-done">0</div></div>
+      <div class="stat"><div class="k">平均分</div><div class="v" id="s-avg">—</div></div>
+      <div class="stat budget"><div class="k">订单预算</div><div class="bar"><i></i></div></div>
+    </div>
+    <div class="split">
+      <div class="paper queue" id="queue"></div>
+      <div>
+        <article class="paper form" id="ticket"></article>
+        <form id="form" style="margin-top:14px">
+          <div class="panel" style="margin:0">
+            <b>新建工单</b>
+            <input id="title" required placeholder="标题，如：批量抠图小程序" style="margin-top:8px">
+            <textarea id="desc" rows="2" placeholder="需求（可选）"></textarea>
+            <button class="btn stamp" type="submit">抽取特征并决策</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="job"><div class="paper panel" id="jobPanel"></div></section>
+  <section class="view" id="eval"><div id="evalPanel"></div></section>
+  <section class="view" id="audit"><div class="paper panel"><h2>全链路审计</h2><div class="audit" id="auditList"></div></div></section>
+  <section class="view" id="approvals"><div class="paper panel"><h2>待你盖章</h2><div id="apList"></div></div></section>
+  <section class="view" id="set"><div class="paper panel">
+    <h2>设置</h2>
+    <div class="foot"><span>Judge：读 config.json（provider=mock/api）</span><span>预算阈值：$2.0</span><span>Workers：config.json 可启用 CLI</span></div>
+  </div></section>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let jobs=[],cur=null;
+const badge=s=>s==="done"?"b-done":(s==="awaiting_approval"?"b-wait":(s==="running"?"b-run":"b-bad"));
+
+async function api(path,opts){ return (await fetch(path,opts)).json(); }
+function job(){return jobs.find(j=>j.id===cur);}
+
+async function loadJobs(){
+  jobs=await api("/api/jobs");
+  const ap=await api("/api/approvals");
+  $("#s-run").textContent=jobs.filter(j=>j.status==="running").length+ (jobs.filter(j=>j.status==="awaiting_approval").length);
+  $("#s-ap").textContent=ap.length;
+  $("#s-done").textContent=jobs.filter(j=>j.status==="done").length;
+  const ev=jobs.flatMap(j=>j.evals||[]); $("#s-avg").textContent= ev.length?(ev.reduce((a,b)=>a+b.weighted,0)/ev.length).toFixed(2):"—";
+  $("#apc").textContent=ap.length;
+  $("#queue").innerHTML=`<div class="q-h"><span>工单</span><span>点选查看</span></div>`+
+    jobs.map(j=>`<button class="ticket ${cur===j.id?"on":""}" data-id="${j.id}">
+      <div class="t">${esc(j.title)}</div><div class="m">${j.id} · ${j.task_type} · ${esc(j.status)}</div></button>`).join("")||
+    "<p style='color:var(--muted);padding:8px'>还没有工单，先新建。</p>";
+  $("#queue").onclick=e=>{const b=e.target.closest("[data-id]");if(b){cur=b.dataset.id;loadJobs();renderTicket();renderJob();}};
+  if(cur) renderTicket();
+}
+
+function renderTicket(){
+  const j=job(); if(!j) return;
+  let dec={}; try{dec=JSON.parse(j.decision_json)}catch(e){}
+  let sb=parseFloat(j.budget_usd||j.features_json?5:5);
+  $("#ticket").innerHTML=`<div class="meta"><span>${j.id}</span><span>${j.task_type}</span></div>
+    <div class="seal ${j.status==="done"?"ok":j.status==="awaiting_approval"?"warn":"muted"}">${j.status==="done"?"已盖章":j.status==="awaiting_approval"?"待盖章":"处理中"}</div>
+    <h1>${esc(j.title)}</h1>
+    <div class="fields">
+      <div><span class="lab">主 worker</span>${esc(dec.worker||"-")}</div>
+      <div><span class="lab">拆分</span>${dec.split?"是 · "+(dec.n_workers||"")+" 路":"否"}</div>
+      <div><span class="lab">优先级</span>${esc((dec.priority_order||[]).join(" → "))}</div>
+      <div><span class="lab">预算</span>$${esc(dec.budget_usd||"-")}</div>
+    </div>
+    <div class="reason">${esc(dec.reason||"")}<div class="src">${esc(dec.source||"")}</div></div>
+    <div class="chips">${Object.entries(j.features_json?JSON.parse(j.features_json):{}).map(([k,v])=>`<span>${k}:${Array.isArray(v)?v.join("|"):v}</span>`).join("")}</div>
+    <div class="row"><button class="btn sm" data-v="job">打开任务</button><button class="btn sm ghost" data-v="eval">看评测</button></div>`;
+}
+
+function renderJob(){
+  const j=job(); if(!j){$("#jobPanel").innerHTML="<p style='color:var(--muted)'>点选左侧工单。</p>";return;}
+  let dec={},feats={}; try{dec=JSON.parse(j.decision_json);feats=JSON.parse(j.features_json)}catch(e){}
+  const ev=[...(j.evals||[])].sort((a,b)=>b.weighted-a.weighted);
+  const top=(ev[0]||{}).weighted;
+  const subs=[]; const n=dec.n_workers||1;
+  for(let i=1;i<=Math.min(n,4);i++)subs.push({t:"子任务"+i,w:dec.worker||"-",s:"done"});
+  $("#jobPanel").innerHTML=`<div class="meta">${j.id}</div>
+    <h1 style="margin-top:2px">${esc(j.title)}</h1>
+    <h2>决策</h2><div class="fields">
+      <div><span class="lab">worker</span>${esc(dec.worker||"-")}</div>
+      <div><span class="lab">拆分</span>${dec.split?"是":"否"}</div>
+      <div><span class="lab">优先级</span>${esc((dec.priority_order||[]).join(" → "))}</div>
+      <div><span class="lab">预算</span>$${esc(dec.budget_usd||"-")}</div></div>
+    <div class="reason">${esc(dec.reason||"")}</div>
+    <h2>子任务</h2>${subs.map(s=>`<div class="stk"><div><b>${s.t}</b></div><span class="badge b-done">${s.s}</span></div>`).join("")}
+    <h2>同场比试 · 各 agent 得分</h2>
+    <table><tr><th>worker</th><th>加权</th><th>花费</th><th>理由</th></tr>
+      ${ev.map(e=>`<tr><td style="font-weight:${e.weighted===top?700:400};color:${e.weighted===top?'var(--stamp)':''}">${esc(e.worker)}</td>
+        <td>${e.weighted}</td><td>$${e.cost_usd||"-"}</td><td style="color:var(--muted)">${esc((e.rationale||"").slice(0,40))}</td></tr>`).join("")}
+    </table>`;
+}
+
+async function loadEval(){
+  const lb=await api("/api/leaderboard");
+  $("#evalPanel").innerHTML=`<div class="paper panel"><h2>Rubric · 编码/图像（带锚点）</h2>
+     <div class="chips"><span>功能正确性 · 0.40</span><span>代码质量 · 0.25</span><span>可复用性 · 0.20</span><span>成本/耗时 · 0.15</span></div></div>
+   <div class="paper panel"><h2>Agent 画像 · 跨任务榜单</h2>
+     <table><tr><th>worker</th><th>平均分</th><th>最好</th><th>样本数</th></tr>
+     ${lb.map(x=>`<tr><td>${esc(x.worker)}</td><td><b>${x.avg_score}</b></td><td>${x.best_score}</td><td>${x.samples}</td></tr>`).join("")||"<tr><td colspan=4 style='color:var(--muted)'>暂无数据</td></tr>"}
+     </table></div>`;
+}
+
+async function loadAudit(){
+  const a=await api("/api/audit");
+  $("#auditList").innerHTML=a.map(x=>`<li><span class="ts">${x.ts}</span><span class="tg">${esc(x.action)}</span><span>${esc(x.detail)}</span></li>`).join("")||"<p style='color:var(--muted)'>暂无</p>";
+}
+
+async function loadApprovals(){
+  const a=await api("/api/approvals");
+  $("#apList").innerHTML=a.map(x=>`<div class="alert"><b>${esc(x.action)}</b><p class="desc">${esc(x.reason)} · ${x.worker} · ${x.job_id}</p>
+    <div class="row"><button class="btn sm" data-ap="${x.id}" data-d="approve">批准</button>
+    <button class="btn sm bad" data-ap="${x.id}" data-d="deny">拒绝</button></div></div>`).join("")||"<p style='color:var(--muted)'>没有待盖章项。</p>";
+  $("#apList").onclick=async e=>{const b=e.target.closest("[data-ap]");if(!b)return;await api("/api/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:b.dataset.ap,decision:b.dataset.d})});loadApprovals();loadJobs();loadAudit();};
+}
+
+$("#form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const title=$("#title").value.trim(),desc=$("#desc").value.trim();
+  const r=await api("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title,description:desc})});
+  cur=r.job_id;$("#title").value="";$("#desc").value="";
+  await loadJobs();renderJob();show("job");loadAudit();loadApprovals();
+});
+document.querySelectorAll("nav.tabs a").forEach(a=>a.addEventListener("click",()=>show(a.dataset.v)));
+function show(id){document.querySelectorAll("nav.tabs a").forEach(t=>t.classList.toggle("on",t.dataset.v===id));
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on",v.id===id));
+  if(id==="eval")loadEval(); if(id==="audit")loadAudit(); if(id==="approvals")loadApprovals(); if(id==="job")renderJob(); loadJobs();}
+document.body.addEventListener("click",e=>{const v=e.target.closest("[data-v]");if(v&&!e.target.closest("nav.tabs"))show(v.dataset.v);});
+loadJobs();
+</script>
+</body>
+</html>
