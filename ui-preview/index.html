@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>haibala · 签发台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#e7e9ee; --paper:#f7f8fa; --ink:#141820; --muted:#5b6270;
+    --line:#d2d6de; --stamp:#c81e5c; --ok:#1f7a4d; --warn:#b45309; --bad:#b42318;
+    --navy:#1e3a5f; --radius:8px;
+    --ring:0 0 0 2px #fff, 0 0 0 4px #141820;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"IBM Plex Sans","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);font-size:13.5px;line-height:1.5;min-height:100vh}
+  a{color:inherit} button,input,select,textarea{font-family:inherit}
+  button{cursor:pointer}
+  .skip{position:absolute;left:-999px}.skip:focus{left:8px;top:8px;background:#fff;padding:8px;z-index:20}
+  .app{max-width:1280px;margin:0 auto;padding:16px 20px 56px}
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .brand b{font-size:18px;letter-spacing:-.03em}
+  .brand span{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted)}
+  .live{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 12px;border-radius:var(--radius);border:1px solid var(--line);background:#fff;font-size:13px;font-weight:600;color:var(--ink)}
+  .btn:hover{background:#eef0f4}
+  .btn:focus-visible{outline:none;box-shadow:var(--ring)}
+  .btn.pri{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .btn.stamp{background:var(--stamp);color:#fff;border-color:var(--stamp)}
+  .btn.ghost{background:transparent}
+  .btn.bad{background:var(--bad);color:#fff;border-color:var(--bad)}
+  .btn.sm{height:30px;font-size:12px;padding:0 10px}
+  nav.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+  nav.tabs a{padding:10px 12px;text-decoration:none;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+  nav.tabs a.on,nav.tabs a:hover{color:var(--ink)}
+  nav.tabs a.on{border-bottom-color:var(--stamp)}
+  nav.tabs a:focus-visible{outline:none;box-shadow:var(--ring)}
+  .count{display:inline-flex;min-width:16px;height:16px;padding:0 4px;margin-left:4px;border-radius:99px;background:var(--stamp);color:#fff;font-size:10px;align-items:center;justify-content:center}
+  .view{display:none}.view.on{display:block}
+  .strip{display:grid;grid-template-columns:repeat(4,1fr) minmax(180px,1.2fr);gap:8px;margin-bottom:14px}
+  .stat{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .stat .k{font-size:11px;color:var(--muted)}
+  .stat .v{font-size:20px;font-weight:700;letter-spacing:-.03em;margin-top:2px}
+  .stat.warn .v{color:var(--warn)}.stat.bad .v{color:var(--bad)}.stat.ok .v{color:var(--ok)}
+  .budget{display:flex;flex-direction:column;justify-content:center}
+  .budget .bar{height:8px;background:#dce0e6;border-radius:99px;overflow:hidden;margin-top:6px}
+  .budget .bar i{display:block;height:100%;width:64%;background:var(--stamp)}
+  .split{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:14px}
+  .paper{background:var(--paper);border:1px solid var(--line);border-radius:12px}
+  .queue{padding:8px;max-height:calc(100vh - 280px);overflow:auto}
+  .q-h{display:flex;justify-content:space-between;padding:8px 8px 10px;font-size:12px;color:var(--muted)}
+  .ticket{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-left:3px solid #94a3b8;border-radius:8px;padding:10px 12px;margin-bottom:8px}
+  .ticket.on{border-color:var(--ink);border-left-color:var(--stamp)}
+  .ticket.run{border-left-color:var(--ok)}
+  .ticket.wait{border-left-color:var(--warn)}
+  .ticket.fail{border-left-color:var(--bad)}
+  .ticket.done{border-left-color:#94a3b8}
+  .ticket .t{font-weight:600;font-size:13px}
+  .ticket .m{font-size:11px;color:var(--muted);margin-top:3px;font-family:"IBM Plex Mono",monospace}
+  .form{position:relative;padding:22px 22px 18px;overflow:hidden;background:repeating-linear-gradient(90deg,transparent,transparent 23px,#eceef2 23px,#eceef2 24px);background-color:#fff}
+  .form:before,.form:after{content:"";position:absolute;left:-7px;width:14px;height:14px;border-radius:50%;background:var(--bg);border:1px solid var(--line)}
+  .form:before{top:36px}.form:after{bottom:36px}
+  .meta{display:flex;justify-content:space-between;gap:8px;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted)}
+  .seal{position:absolute;right:24px;top:24px;transform:rotate(-14deg);border:2.5px solid var(--stamp);color:var(--stamp);padding:6px 10px;font-weight:700;letter-spacing:.12em;font-size:12px;background:rgba(255,255,255,.8)}
+  .seal.ok{border-color:var(--ok);color:var(--ok)}
+  .seal.warn{border-color:var(--warn);color:var(--warn)}
+  .seal.bad{border-color:var(--bad);color:var(--bad)}
+  .seal.muted{border-color:#94a3b8;color:#64748b}
+  h1{font-size:22px;letter-spacing:-.03em;margin:12px 0 6px;max-width:76%;font-weight:700}
+  h2{font-size:15px;margin:0 0 12px;letter-spacing:-.02em}
+  .desc{color:var(--muted)}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;margin:14px 0}
+  .fields .lab{display:block;font-size:11px;color:var(--muted);font-weight:500}
+  .reason{font-family:"IBM Plex Mono",monospace;font-size:12px;background:#f4f5f7;border:1px dashed #c9ced8;padding:12px;border-radius:6px;color:#2a3140}
+  .src{margin-top:6px;color:var(--stamp);font-size:11px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+  .chips span,.chip{display:inline-block;background:#eef0f4;border-radius:999px;padding:2px 8px;font-size:11px;margin:0 4px 4px 0;border:0;color:var(--ink)}
+  .chip.on{background:var(--ink);color:#fff}
+  .pending{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .pend{text-align:left;background:#fff8ee;border:1px solid #f0d3a8;border-radius:10px;padding:12px}
+  .pend b{display:block;margin-bottom:4px}
+  .stk{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px;background:#fff;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+  .badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600}
+  .b-run{background:#e8f6ee;color:var(--ok)} .b-wait{background:#fff4e5;color:var(--warn)}
+  .b-bad{background:#fde8e6;color:var(--bad)} .b-done{background:#e8eef8;color:var(--navy)}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-size:12.5px;vertical-align:top}
+  th{color:var(--muted);font-weight:500}
+  .panel{padding:16px;margin-bottom:12px}
+  .job-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+  .toc{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 4px}
+  .toc a{font-size:12px;color:var(--muted);text-decoration:none;padding:4px 8px;border-radius:6px;border:1px solid transparent}
+  .toc a:hover,.toc a:focus-visible{border-color:var(--line);color:var(--ink);outline:none}
+  .cost .line{display:grid;grid-template-columns:88px 1fr 56px;gap:8px;align-items:center;margin:8px 0;font-size:12px}
+  .cost .tr{height:8px;background:#dce0e6;border-radius:99px;overflow:hidden}
+  .cost .tr i{display:block;height:100%;background:var(--navy)}
+  .dims{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .dim{border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff}
+  .dim .lab{font-size:11px;color:var(--muted)}
+  .dim .v{font-size:20px;font-weight:700;color:var(--navy)}
+  .profiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .prof{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px}
+  .cal{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .audit li{list-style:none;display:grid;grid-template-columns:118px 84px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  .audit .ts,.audit .tg{font-family:"IBM Plex Mono",monospace;color:var(--muted)}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+  input[type=search],input[type=text],input[type=number],select,textarea{
+    height:36px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:#fff;font-size:13px;min-width:0
+  }
+  textarea{height:auto;padding:8px 10px;resize:vertical;width:100%}
+  input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;box-shadow:var(--ring)}
+  .set-block+.set-block{margin-top:8px}
+  .set .r{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:center}
+  .set .r:last-child{border:0}
+  .alert{border:1px solid #f0d3a8;background:#fff8ee;border-radius:8px;padding:12px;margin-bottom:10px}
+  .keys{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted)}
+  .scrim{position:fixed;inset:0;background:rgba(20,24,32,.45);display:none;align-items:flex-start;justify-content:center;padding:8vh 16px 16px;z-index:30}
+  .scrim.on{display:flex}
+  .sheet{width:min(520px,100%);background:#fff;border-radius:12px;border:1px solid var(--line);padding:20px;box-shadow:0 16px 40px rgba(20,24,32,.18)}
+  .sheet h2{margin-bottom:4px}
+  .fg{margin:12px 0}
+  .fg label{display:block;font-size:12px;font-weight:600;margin-bottom:4px}
+  .hint{font-size:11px;color:var(--muted);margin-top:4px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:10px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;z-index:40}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0);transition:opacity .2s,transform .2s}
+  @media(max-width:960px){
+    .strip{grid-template-columns:1fr 1fr}.split,.pending,.dims,.profiles,.cal{grid-template-columns:1fr}
+    .seal{position:static;transform:none;display:inline-block;margin:8px 0}
+    h1{max-width:100%}
+  }
+  @media(prefers-reduced-motion:reduce){.toast,.btn,.ticket{transition:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到主内容</a>
+<div class="app">
+  <header class="bar">
+    <div class="brand"><b>haibala</b><span>签发台</span></div>
+    <div class="live"><span class="dot" aria-hidden="true"></span>核心在线 · 本地 · 数据不出机</div>
+    <button class="btn pri" type="button" id="btnNew">新建任务</button>
+  </header>
+  <nav class="tabs" aria-label="主功能">
+    <a class="on" href="#dash" data-v="dash">总览</a>
+    <a href="#job" data-v="job">任务</a>
+    <a href="#eval" data-v="eval">评测</a>
+    <a href="#log" data-v="log">审计</a>
+    <a href="#sec" data-v="sec">审批<span class="count">2</span></a>
+    <a href="#set" data-v="set">设置</a>
+  </nav>
+  <main id="main">
+
+    <section class="view on" id="dash">
+      <div class="strip">
+        <div class="stat"><div class="k">进行中</div><div class="v">3</div></div>
+        <div class="stat warn"><div class="k">待盖章</div><div class="v">2</div></div>
+        <div class="stat bad"><div class="k">异常 / 超支</div><div class="v">1</div></div>
+        <div class="stat ok"><div class="k">已归档</div><div class="v">12</div></div>
+        <div class="stat budget"><div class="k">今日预算 $3.2 / $5.0</div><div class="bar" aria-hidden="true"><i></i></div></div>
+      </div>
+      <div class="split">
+        <div class="paper queue" id="queue"></div>
+        <div>
+          <article class="paper form" id="ticket"></article>
+          <div class="pending">
+            <button class="pend" type="button" data-v="sec"><b>待盖章 · 写外盘</b><span class="desc">MiniMax 请求 /releases/assets</span></button>
+            <button class="pend" type="button" data-v="sec"><b>待盖章 · 超支</b><span class="desc">Codex 高成本模型约 $2.4</span></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="job">
+      <article class="paper panel" id="jobPanel"></article>
+    </section>
+
+    <section class="view" id="eval">
+      <div class="paper panel">
+        <h2>Rubric · 编码/图像（带锚点）</h2>
+        <div class="dims">
+          <div class="dim"><div class="lab">功能正确性</div><div class="v">0.40</div><p class="desc">5 = 完整可跑通</p></div>
+          <div class="dim"><div class="lab">代码质量</div><div class="v">0.25</div><p class="desc">5 = 清晰可维护</p></div>
+          <div class="dim"><div class="lab">可复用性</div><div class="v">0.20</div><p class="desc">5 = 易扩展</p></div>
+          <div class="dim"><div class="lab">成本 / 耗时</div><div class="v">0.15</div><p class="desc">5 = 省时省钱</p></div>
+        </div>
+        <div class="row"><button class="btn sm" type="button">编辑锚点</button><button class="btn sm ghost" type="button">另存为模板</button></div>
+      </div>
+      <div class="paper panel">
+        <h2>同一考卷 · 盲评对比</h2>
+        <table>
+          <thead><tr><th>worker</th><th>正确性</th><th>质量</th><th>复用</th><th>成本</th><th>加权</th><th>花费</th></tr></thead>
+          <tbody>
+            <tr><td>Codex</td><td>5</td><td>4</td><td>4</td><td>3.5</td><td><b>4.2</b></td><td>$1.1 / 4.2min</td></tr>
+            <tr><td>DeepSeek</td><td>4</td><td>4</td><td>3.5</td><td>4</td><td>3.8</td><td>$0.9 / 3.6min</td></tr>
+            <tr><td>MiniMax</td><td>3</td><td>2.5</td><td>2.5</td><td>3</td><td>2.9</td><td>$0.4 / 2.8min</td></tr>
+          </tbody>
+        </table>
+        <p class="reason" style="margin-top:12px">编码/图像类下次默认签发 Codex。judge 每条分数附产物引用。<span class="src">盲评已揭晓</span></p>
+      </div>
+      <div class="paper panel">
+        <h2>Agent 画像</h2>
+        <div class="profiles">
+          <div class="prof"><b>Codex</b><p class="desc">擅长编码、逻辑、图像工程 · 弱设计 · 均分 4.2 · $1.1/任务</p></div>
+          <div class="prof"><b>DeepSeek Harness</b><p class="desc">擅长编码、编排 · 弱 GUI · 均分 3.9 · $0.9/任务</p></div>
+          <div class="prof"><b>MiniMax</b><p class="desc">擅长文案、设计 · 弱编码 · 均分 2.9 · $0.4/任务</p></div>
+        </div>
+      </div>
+      <div class="paper panel">
+        <h2>人工校准</h2>
+        <div class="cal">
+          <div><p class="desc">S-0 产物 · Judge 4.6</p><p>你的分数（ground truth）</p><input type="number" min="1" max="5" step="0.1" value="4.5" aria-label="人工分数"></div>
+          <div><p class="desc">用于校正 judge 尺度。偏差将计入可信度。</p><div class="row"><button class="btn stamp sm" type="button">写入校准</button></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="log">
+      <div class="paper panel">
+        <div class="tools">
+          <button class="chip on" type="button" data-log="all">全部</button>
+          <button class="chip" type="button" data-log="decide">decide</button>
+          <button class="chip" type="button" data-log="approve">approve</button>
+          <button class="chip" type="button" data-log="dispatch">dispatch</button>
+          <button class="chip" type="button" data-log="judge">judge</button>
+          <button class="chip" type="button" data-log="alert">alert</button>
+          <button class="chip" type="button" data-log="sandbox">sandbox</button>
+          <input type="search" id="logQ" placeholder="检索动作 / 工单" aria-label="检索审计">
+          <button class="btn sm ghost" type="button">导出</button>
+        </div>
+        <ul class="audit" id="logList"></ul>
+      </div>
+    </section>
+
+    <section class="view" id="sec">
+      <div class="split">
+        <div class="paper panel">
+          <h2>待你盖章</h2>
+          <div class="alert">
+            <b>MiniMax 请求写入 /releases/assets</b>
+            <p class="desc">不可逆 · 超出默认工作区 · JOB-1842</p>
+            <div class="row">
+              <button class="btn sm" type="button" data-toast="已允许本次写入">允许本次</button>
+              <button class="btn sm" type="button" data-toast="已允许本任务写入">允许本任务</button>
+              <button class="btn sm bad" type="button" data-toast="已拒绝写入">拒绝</button>
+            </div>
+          </div>
+          <div class="alert">
+            <b>Codex 将调用高成本模型（约 $2.4）</b>
+            <p class="desc">触及预算阈值 · JOB-1842</p>
+            <div class="row">
+              <button class="btn sm stamp" type="button" data-toast="已批准并计入预算">批准并入预算</button>
+              <button class="btn sm bad" type="button" data-toast="已拒绝高成本调用">拒绝</button>
+            </div>
+          </div>
+        </div>
+        <div class="paper panel">
+          <h2>权限与密钥</h2>
+          <p class="desc">不可逆操作（写库 / 外发 / 删除）需盖章。每个 worker 最小权限。外部内容进 prompt 前过注入护栏。</p>
+          <p class="keys" style="margin-top:12px">API key · 系统密钥链<br>不落明文配置<br>护栏：开启</p>
+        </div>
+      </div>
+      <div class="paper panel">
+        <h2>敏感操作记录</h2>
+        <table>
+          <thead><tr><th>时间</th><th>worker</th><th>动作</th><th>结果</th></tr></thead>
+          <tbody>
+            <tr><td>10:08:20</td><td>MiniMax</td><td>写外部目录</td><td><span class="badge b-wait">拦截待审</span></td></tr>
+            <tr><td>09:41:03</td><td>Codex</td><td>运行测试命令</td><td><span class="badge b-done">允许</span></td></tr>
+            <tr><td>09:12:55</td><td>—</td><td>读取密钥链</td><td><span class="badge b-done">本机</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="view" id="set">
+      <div class="paper panel set set-block">
+        <h2>Judge</h2>
+        <div class="r"><div><b>打分模型</b><div class="hint">API / 本地 ollama / 混合</div></div><span>api · DeepSeek</span></div>
+        <div class="r"><div><b>盲评</b><div class="hint">隐藏 worker 身份</div></div><span>开启</span></div>
+      </div>
+      <div class="paper panel set set-block">
+        <h2>预算与路由</h2>
+        <div class="r"><div><b>默认预算</b><div class="hint">每个新工单成本上限</div></div><span>$5.0</span></div>
+        <div class="r"><div><b>模型路由</b><div class="hint">简单步骤用便宜模型</div></div><span>自动</span></div>
+      </div>
+      <div class="paper panel set set-block">
+        <h2>审批策略</h2>
+        <div class="r"><div><b>何时打断你</b><div class="hint">每步都批 / 仅敏感与超支</div></div><span>敏感 + 超支</span></div>
+      </div>
+      <div class="paper panel set set-block">
+        <h2>Worker 注册表</h2>
+        <div class="r"><div><b>Codex</b><div class="hint">CLI · coding</div></div><span>自动</span></div>
+        <div class="r"><div><b>DeepSeek Harness</b><div class="hint">CLI · coding / agent</div></div><span>自动</span></div>
+        <div class="r"><div><b>MiniMax</b><div class="hint">API · 文案 / 设计</div></div><span>自动</span></div>
+        <div class="r"><div><b>Cursor</b><div class="hint">GUI · 手动任务卡</div></div><span>手动</span></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="newTitle" hidden>
+  <form class="sheet" id="newForm">
+    <h2 id="newTitle">新建工单</h2>
+    <p class="hint">录入后先抽特征、出决策，再由你盖章派活。</p>
+    <div class="fg"><label for="nt">标题</label><input id="nt" type="text" required placeholder="例如：批量抠图小程序"></div>
+    <div class="fg"><label for="nd">需求</label><textarea id="nd" rows="4" required placeholder="交付物、约束、参考链接"></textarea></div>
+    <div class="fg"><label for="nb">预算上限（USD）</label><input id="nb" type="number" min="0.5" step="0.5" value="5"></div>
+    <div class="fg"><label for="ndl">Deadline（可选）</label><input id="ndl" type="text" placeholder="2026-09-05"></div>
+    <div class="row">
+      <button class="btn stamp" type="submit">抽取特征并出决策</button>
+      <button class="btn ghost" type="button" id="btnCancel">取消</button>
+    </div>
+  </form>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const JOBS = [
+  {
+    id:"JOB-1842", cls:"run", title:"商品抠图 + 换背景 + 小程序",
+    meta:"Codex 主派 · 3/4 子任务", kind:"编码 / 图像 · 中高复杂度",
+    seal:"建议 CODEX", sealCls:"",
+    desc:"批量抠图、换背景、生成小红书文案，交付一个简单小程序。",
+    worker:"Codex", split:"是 · 3 路并行", order:"数据 → 模型 → 前端", budget:"$5.00",
+    reason:"参考案例 C-021（同为「抠图+界面」），Codex 功能正确性 5；MiniMax 在该类编码任务偏弱。建议拆成数据抓取 / 抠图模型 / 前端，文案最后。",
+    src:"来源 C-021 · AgentProfile[codex] avg 4.2",
+    tags:["编码/脚本","图像","多模态","规模中"],
+    adopted:false,
+    subs:[
+      {t:"S-0 数据抓取", d:"120 张商品图归一化", s:"done", who:"Codex · $0.4"},
+      {t:"S-1 抠图 + 换背景", d:"rembg + 背景生成", s:"running 68%", who:"DeepSeek · $0.9"},
+      {t:"S-2 小程序前端", d:"上传 → 处理 → 导出", s:"running", who:"Codex · $1.1"},
+      {t:"S-3 小红书文案×5", d:"依赖 S-1", s:"queued", who:"MiniMax"}
+    ],
+    costs:[["DeepSeek","70%","$1.8"],["Codex","48%","$1.1"],["MiniMax","15%","$0.3"]],
+    approvals:["MiniMax 写外盘 · 待审","Codex 高成本模型 · 待审"],
+    audit:["10:02:11 decide","10:02:19 待盖章"]
+  },
+  {
+    id:"JOB-1841", cls:"wait", title:"行业报告数据抓取",
+    meta:"待审批写库", kind:"数据 / 脚本 · 中复杂度",
+    seal:"待盖章", sealCls:"warn",
+    desc:"从公开源抓取行业报告并入库。写库动作为敏感操作。",
+    worker:"DeepSeek", split:"否", order:"抓取 → 清洗 → 入库", budget:"$2.00",
+    reason:"同类抓取案例 C-008 用 DeepSeek 成本更低。入库需你盖章。",
+    src:"来源 C-008",
+    tags:["数据","脚本"],
+    adopted:true,
+    subs:[
+      {t:"S-0 抓取", d:"公开 PDF / HTML", s:"done", who:"DeepSeek · $0.3"},
+      {t:"S-1 入库", d:"写本地 sqlite", s:"queued", who:"DeepSeek"}
+    ],
+    costs:[["DeepSeek","22%","$0.3"]],
+    approvals:["写库 · 待审"],
+    audit:["09:50 decide","09:51 待盖章入库"]
+  },
+  {
+    id:"JOB-1838", cls:"fail", title:"文案批量生成",
+    meta:"超支已暂停", kind:"文案 · 低复杂度",
+    seal:"已暂停", sealCls:"bad",
+    desc:"批量生成投放文案。实际成本超过预算，已中断。",
+    worker:"MiniMax", split:"否", order:"提纲 → 成稿", budget:"$1.00",
+    reason:"文案类默认 MiniMax。本次重试过多导致超支。",
+    src:"规则：超支即停",
+    tags:["文案"],
+    adopted:true,
+    subs:[{t:"S-0 成稿", d:"已超预算", s:"failed", who:"MiniMax · $1.4"}],
+    costs:[["MiniMax","140%","$1.4"]],
+    approvals:["超支中断 · 已执行"],
+    audit:["昨日 dispatch","昨日 alert 超支"]
+  },
+  {
+    id:"JOB-1833", cls:"done", title:"简历站改版",
+    meta:"已完成 · 4.1", kind:"前端 · 中复杂度",
+    seal:"已归档", sealCls:"muted",
+    desc:"个人站点三套简历页。已验收归档。",
+    worker:"Codex", split:"否", order:"结构 → 样式", budget:"$3.00",
+    reason:"前端结构类 Codex 稳定。得分 4.1。",
+    src:"案例已入库",
+    tags:["前端"],
+    adopted:true,
+    subs:[{t:"S-0 页面", d:"三套 HTML", s:"done", who:"Codex · $0.8"}],
+    costs:[["Codex","27%","$0.8"]],
+    approvals:[],
+    audit:["归档 judge 4.1"]
+  }
+];
+
+const LOGS = [
+  {ts:"10:08:20", tg:"sandbox", t:"MiniMax 写外部目录，已拦截并请求盖章"},
+  {ts:"10:07:44", tg:"alert", t:"预算接近 80%"},
+  {ts:"10:06:02", tg:"judge", t:"S-0 产物评分 4.6（引用 2 处）"},
+  {ts:"10:04:31", tg:"dispatch", t:"S-1 DeepSeek 12.3k tokens · $0.41"},
+  {ts:"10:02:24", tg:"dispatch", t:"S-0→Codex, S-1→DeepSeek, S-2→Codex"},
+  {ts:"10:02:19", tg:"approve", t:"JOB-1842 决策待盖章"},
+  {ts:"10:02:11", tg:"decide", t:"JOB-1842 worker=Codex split=3 budget=$5"}
+];
+
+let current = JOBS[0].id;
+let logFilter = "all";
+
+const $ = s => document.querySelector(s);
+const badge = s => {
+  if(s.startsWith("done")) return "b-done";
+  if(s.startsWith("run")) return "b-run";
+  if(s.startsWith("fail")) return "b-bad";
+  return "b-wait";
+};
+
+function job(){ return JOBS.find(j=>j.id===current) }
+
+function renderQueue(){
+  $("#queue").innerHTML = `<div class="q-h"><span>今日工单</span><span>点选预览 · 打开任务看全貌</span></div>` +
+    JOBS.map(j=>`<button class="ticket ${j.cls}${j.id===current?" on":""}" type="button" data-id="${j.id}">
+      <div class="t">${j.title}</div><div class="m">${j.id} · ${j.meta}</div></button>`).join("");
+  $("#queue").onclick = e => {
+    const b = e.target.closest("[data-id]");
+    if(!b) return;
+    current = b.dataset.id;
+    renderQueue(); renderTicket();
+  };
+}
+
+function renderTicket(){
+  const j = job();
+  const actions = j.adopted
+    ? `<button class="btn stamp" type="button" data-go="job">打开任务</button>
+       <button class="btn" type="button" data-go="eval">看评测</button>`
+    : `<button class="btn stamp" type="button" id="adopt">采纳并派活</button>
+       <button class="btn" type="button" data-go="job">修改后打开</button>
+       <button class="btn ghost" type="button" data-toast="已重新抽取特征">重新评估</button>`;
+  $("#ticket").innerHTML = `
+    <div class="meta"><span>${j.id}</span><span>${j.kind}</span></div>
+    <div class="seal ${j.sealCls}">${j.seal}</div>
+    <h1>${j.title}</h1>
+    <p class="desc">${j.desc} 预算 ${j.budget}。</p>
+    <div class="fields">
+      <div><span class="lab">主 worker</span>${j.worker}</div>
+      <div><span class="lab">拆分</span>${j.split}</div>
+      <div><span class="lab">优先级</span>${j.order}</div>
+      <div><span class="lab">预算</span>${j.budget}</div>
+    </div>
+    <div class="reason">${j.reason}<div class="src">${j.src}</div></div>
+    <div class="row">${actions}</div>`;
+}
+
+function renderJob(){
+  const j = job();
+  $("#jobPanel").innerHTML = `
+    <div class="job-head">
+      <div>
+        <div class="meta">${j.id}</div>
+        <h1 style="margin-top:6px">${j.title}</h1>
+        <div class="chips">${j.tags.map(t=>`<span>${t}</span>`).join("")}</div>
+      </div>
+      <div class="row" style="margin:0">${j.adopted?`<span class="badge b-run">已派活</span>`:`<span class="badge b-wait">待盖章</span>`}
+        <button class="btn sm" type="button" data-v="dash">回总览</button>
+      </div>
+    </div>
+    <nav class="toc" aria-label="本单章节">
+      <a href="#job" data-scroll="j-feat">特征</a><a href="#job" data-scroll="j-dec">决策</a><a href="#job" data-scroll="j-sub">子任务</a>
+      <a href="#job" data-scroll="j-cost">成本</a><a href="#job" data-scroll="j-ap">本单审批</a><a href="#job" data-scroll="j-au">本单审计</a>
+    </nav>
+    <h2 id="j-feat">特征</h2>
+    <p class="desc">${j.kind}。由 observe 节点抽取，供路由使用。</p>
+    <h2 id="j-dec" style="margin-top:18px">决策</h2>
+    <div class="fields">
+      <div><span class="lab">主 worker</span>${j.worker}</div>
+      <div><span class="lab">拆分</span>${j.split}</div>
+      <div><span class="lab">优先级</span>${j.order}</div>
+      <div><span class="lab">预算</span>${j.budget}</div>
+    </div>
+    <div class="reason">${j.reason}<div class="src">${j.src}</div></div>
+    <h2 id="j-sub" style="margin-top:18px">子任务</h2>
+    ${j.subs.map(s=>`<div class="stk"><div><b>${s.t}</b><div class="desc">${s.d}</div></div>
+      <div><span class="badge ${badge(s.s)}">${s.s}</span><div class="desc">${s.who}</div></div></div>`).join("")}
+    <h2 id="j-cost" style="margin-top:18px">成本时间线</h2>
+    <div class="cost">${j.costs.map(c=>`<div class="line"><span>${c[0]}</span><div class="tr"><i style="width:${c[1]}"></i></div><span>${c[2]}</span></div>`).join("")}</div>
+    <h2 id="j-ap" style="margin-top:18px">本单审批</h2>
+    <p class="desc">${j.approvals.length?j.approvals.join(" · "):"无待批项"}</p>
+    ${j.approvals.length?`<div class="row"><button class="btn sm" type="button" data-v="sec">去盖章</button></div>`:""}
+    <h2 id="j-au" style="margin-top:18px">本单审计</h2>
+    <p class="desc">${j.audit.join(" · ")}</p>
+    <div class="row"><button class="btn sm ghost" type="button" data-v="log">打开全链路</button></div>`;
+}
+
+function renderLog(){
+  const q = ($("#logQ").value||"").trim().toLowerCase();
+  const rows = LOGS.filter(l => (logFilter==="all"||l.tg===logFilter) && (!q || (l.t+l.tg).toLowerCase().includes(q)));
+  $("#logList").innerHTML = rows.map(l=>`<li><span class="ts">${l.ts}</span><span class="tg">${l.tg}</span><span>${l.t}</span></li>`).join("")
+    || `<li><span class="ts">—</span><span class="tg"></span><span>没有匹配的记录</span></li>`;
+}
+
+const VIEWS = ["dash","job","eval","log","sec","set"];
+function show(id){
+  if(!VIEWS.includes(id)) id = "dash";
+  document.querySelectorAll("nav.tabs a").forEach(t=>t.classList.toggle("on", t.dataset.v===id));
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on", v.id===id));
+  if(id==="job") renderJob();
+  if(id==="log") renderLog();
+}
+
+function toast(msg){
+  const el = $("#toast");
+  el.textContent = msg;
+  el.classList.add("on");
+  setTimeout(()=>el.classList.remove("on"), 2200);
+}
+
+function openNew(on){
+  const s = $("#scrim");
+  s.classList.toggle("on", on);
+  s.hidden = !on;
+  if(on) $("#nt").focus();
+}
+
+document.querySelectorAll("nav.tabs a").forEach(t=>t.addEventListener("click", e=>{
+  e.preventDefault(); history.replaceState(null,"","#"+t.dataset.v); show(t.dataset.v);
+}));
+
+document.body.addEventListener("click", e=>{
+  const go = e.target.closest("[data-go]");
+  const v = e.target.closest("[data-v]");
+  const sc = e.target.closest("[data-scroll]");
+  const ad = e.target.closest("#adopt");
+  const ts = e.target.closest("[data-toast]");
+  if(sc){ e.preventDefault(); document.getElementById(sc.dataset.scroll)?.scrollIntoView({behavior:"smooth",block:"start"}); return; }
+  if(go){ e.preventDefault(); history.replaceState(null,"","#"+go.dataset.go); show(go.dataset.go); }
+  if(v && !e.target.closest("nav.tabs")){ e.preventDefault(); history.replaceState(null,"","#"+v.dataset.v); show(v.dataset.v); }
+  if(ad){ job().adopted = true; job().seal = "已派活"; job().sealCls = "ok"; job().cls = "run"; toast("已盖章，开始派活"); renderQueue(); renderTicket(); history.replaceState(null,"","#job"); show("job"); }
+  if(ts) toast(ts.dataset.toast);
+});
+
+document.querySelectorAll("[data-log]").forEach(c=>c.addEventListener("click", ()=>{
+  logFilter = c.dataset.log;
+  document.querySelectorAll("[data-log]").forEach(x=>x.classList.toggle("on", x===c));
+  renderLog();
+}));
+$("#logQ").addEventListener("input", renderLog);
+$("#btnNew").addEventListener("click", ()=>openNew(true));
+$("#btnCancel").addEventListener("click", ()=>openNew(false));
+$("#scrim").addEventListener("click", e=>{ if(e.target.id==="scrim") openNew(false); });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") openNew(false); });
+$("#newForm").addEventListener("submit", e=>{
+  e.preventDefault();
+  openNew(false);
+  toast("已生成工单，待你盖章");
+  current = "JOB-1842";
+  show("dash");
+});
+
+renderQueue(); renderTicket(); renderLog();
+const h = (location.hash||"#dash").slice(1);
+if(document.getElementById(h)) show(h);
+</script>
+</body>
+</html>
