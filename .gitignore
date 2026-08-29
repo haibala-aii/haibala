@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# 运行时数据与本地密钥（不提交）
+data/
+.env
+*.db
+*.sqlite3
+
+# 前端 / 构建
+node_modules/
+dist/
+build/
+
+# 预览截图等本地产物
+ui-preview/_shots/
+
+# 系统 / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
