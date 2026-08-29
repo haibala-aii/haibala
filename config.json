@@ -1,0 +1,16 @@
+{
+  "judge": {
+    "provider": "mock",
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-chat"
+  },
+  "budget": {
+    "default_usd": 5.0,
+    "approve_over_usd": 2.0
+  },
+  "workers": {
+    "codex":   { "type": "cli", "cmd": "codex",   "capability": ["coding", "image", "frontend"], "enabled": false },
+    "dsh":     { "type": "cli", "cmd": "dsh",     "capability": ["coding", "agent", "frontend"], "enabled": false },
+    "minimax": { "type": "api", "cmd": "minimax", "capability": ["text", "design"], "enabled": false }
+  }
+}
