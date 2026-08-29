@@ -47,7 +47,7 @@ class MockJudge(JudgePlugin):
 
         # 加权总分
         weighted = round(sum(scores[d["name"]] * d["weight"] for d in rubric["dimensions"]), 2)
-        rationale = (f"worker [{artifact.meta.get('name')}] 对 {task_type} 类任务"
-                     f"能力匹配度 {match:.1f}/5，加权 {weighted}。")
+        rationale = (f"对 {task_type} 类任务，能力匹配度 {match:.1f}/5，加权 {weighted}。"
+                     "（盲评：未使用工人身份。）")
         return Evaluation(worker=artifact.meta.get("name", "?"), scores=scores,
                           weighted=weighted, rationale=rationale, judge="mock")

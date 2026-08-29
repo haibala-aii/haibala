@@ -1,0 +1,5 @@
+# 核心闭环只依赖 Python 3.11+ 标准库。
+# 下面这些是增强项：桌面窗口、LangGraph 状态机、sklearn 路由。
+langgraph>=0.2.0
+scikit-learn>=1.4.0
+pywebview>=5.0

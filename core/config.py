@@ -44,3 +44,37 @@ JUDGE_API_KEY = get("DEEPSEEK_API_KEY", "")                      # 从 .env 或�
 # ------- 预算 / 审批阈值 -------
 BUDGET_DEFAULT = float(_raw.get("budget", {}).get("default_usd", 5.0))
 APPROVAL_COST_THRESHOLD = float(_raw.get("budget", {}).get("approve_over_usd", 2.0))
+
+
+def reload():
+    """设置页改完 config.json 后重新读入。"""
+    global _raw, JUDGE_PROVIDER, JUDGE_BASE_URL, JUDGE_MODEL, JUDGE_API_KEY
+    global BUDGET_DEFAULT, APPROVAL_COST_THRESHOLD, _ENV
+    _raw = _load(CONFIG_PATH)
+    _ENV = {**_env_kv(), **os.environ}
+    JUDGE_PROVIDER = _raw.get("judge", {}).get("provider", "mock")
+    JUDGE_BASE_URL = _raw.get("judge", {}).get("base_url", "https://api.deepseek.com")
+    JUDGE_MODEL = _raw.get("judge", {}).get("model", "deepseek-chat")
+    JUDGE_API_KEY = get("DEEPSEEK_API_KEY", "")
+    BUDGET_DEFAULT = float(_raw.get("budget", {}).get("default_usd", 5.0))
+    APPROVAL_COST_THRESHOLD = float(_raw.get("budget", {}).get("approve_over_usd", 2.0))
+
+
+def raw() -> dict:
+    return dict(_raw)
+
+
+def save_patch(patch: dict) -> dict:
+    data = _load(CONFIG_PATH) if CONFIG_PATH.exists() else {}
+    if "judge" in patch and isinstance(patch["judge"], dict):
+        data.setdefault("judge", {}).update(patch["judge"])
+    if "budget" in patch and isinstance(patch["budget"], dict):
+        data.setdefault("budget", {}).update(patch["budget"])
+    if "workers" in patch and isinstance(patch["workers"], dict):
+        data.setdefault("workers", {})
+        for name, conf in patch["workers"].items():
+            data["workers"].setdefault(name, {})
+            data["workers"][name].update(conf)
+    CONFIG_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    reload()
+    return data

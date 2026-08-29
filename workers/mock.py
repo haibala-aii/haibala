@@ -25,7 +25,7 @@ class MockWorker(WorkerPlugin):
         return Artifact(
             id=f"art-{uuid.uuid4().hex[:6]}",
             status="done",
-            summary=f"[mock:{self.name}] 已完成：{task[:40]}",
+            summary=f"已完成：{task[:40]}",
             cost_usd=round(random.uniform(0.2, 1.2), 2),
             latency_ms=round(random.uniform(800, 4000)),
             detail="M1 mock 产物，仅用于先跑通闭环。",

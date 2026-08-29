@@ -23,7 +23,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "haibala.db")
 
 def _conn():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    c = sqlite3.connect(DB_PATH)
+    c = sqlite3.connect(DB_PATH, timeout=15)
     c.row_factory = sqlite3.Row
     return c
 
@@ -98,13 +98,13 @@ def _now(): return datetime.now().isoformat(timespec="seconds")
 def _uid(prefix): return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
 # ---------- Job ----------
-def create_job(title, description, task_type, features, decision):
+def create_job(title, description, task_type, features, decision, status="running"):
     c = _conn(); jid = _uid("JOB")
     c.execute("INSERT INTO job VALUES (?,?,?,?,?,?,?,?)",
               (jid, title, description, task_type,
                json.dumps(features, ensure_ascii=False),
                json.dumps(decision, ensure_ascii=False),
-               "running", _now()))
+               status, _now()))
     c.commit(); c.close()
     return jid
 
@@ -123,11 +123,67 @@ def list_jobs():
     c = _conn()
     rows = c.execute("SELECT * FROM job ORDER BY created_at DESC").fetchall()
     c.close()
-    return [dict(r) for r in rows]
+    return [enrich_job(dict(r)) for r in rows]
 
 def get_job(jid):
     c = _conn(); r = c.execute("SELECT * FROM job WHERE id=?", (jid,)).fetchone(); c.close()
-    return dict(r) if r else None
+    return enrich_job(dict(r)) if r else None
+
+def _parse_json(s, fallback):
+    try:
+        return json.loads(s or "") or fallback
+    except Exception:
+        return fallback
+
+def enrich_job(j):
+    """给前端一份拼好的工单：决策、特征、产物、花费、子任务。"""
+    j["features"] = _parse_json(j.get("features_json"), {})
+    j["decision"] = _parse_json(j.get("decision_json"), {})
+    evals = list_evaluations(j["id"])
+    for e in evals:
+        e["scores"] = _parse_json(e.get("scores_json"), {})
+    st = get_job_state(j["id"])
+    ck = (st or {}).get("checkpoint") or {}
+    j["stage"] = st["stage"] if st else None
+    j["artifacts"] = ck.get("artifacts") or []
+    costs = {a.get("worker"): a.get("cost_usd") for a in j["artifacts"]}
+    lats = {a.get("worker"): a.get("latency_ms") for a in j["artifacts"]}
+    for e in evals:
+        e["cost_usd"] = costs.get(e["worker"])
+        e["latency_ms"] = lats.get(e["worker"])
+    j["evals"] = evals
+    j["subtasks"] = list_subtasks(j["id"])
+    j["spent_usd"] = round(sum((a.get("cost_usd") or 0) for a in j["artifacts"]), 4)
+    j["budget_usd"] = float(j["decision"].get("budget_usd") or 5)
+    j["dispatch_mode"] = ck.get("dispatch_mode")
+    j["sensitive"] = bool(ck.get("sensitive"))
+    return j
+
+# ---------- Subtask ----------
+def add_subtask(job_id, title, worker, priority, status, artifact_path=""):
+    c = _conn(); sid = _uid("SUB")
+    c.execute("INSERT INTO subtask VALUES (?,?,?,?,?,?,?)",
+              (sid, job_id, title, worker, priority, status, artifact_path))
+    c.commit(); c.close()
+    return sid
+
+def list_subtasks(job_id):
+    c = _conn()
+    rows = c.execute("SELECT * FROM subtask WHERE job_id=? ORDER BY priority", (job_id,)).fetchall()
+    c.close()
+    return [dict(r) for r in rows]
+
+def clear_subtasks(job_id):
+    c = _conn(); c.execute("DELETE FROM subtask WHERE job_id=?", (job_id,)); c.commit(); c.close()
+
+def set_subtasks_status(job_id, status, artifact_path=None):
+    c = _conn()
+    if artifact_path is None:
+        c.execute("UPDATE subtask SET status=? WHERE job_id=?", (status, job_id))
+    else:
+        c.execute("UPDATE subtask SET status=?, artifact_path=? WHERE job_id=?",
+                  (status, artifact_path, job_id))
+    c.commit(); c.close()
 
 # ---------- Evaluation ----------
 def add_evaluation(job_id, worker, scores, weighted, rationale, judge):
@@ -188,9 +244,18 @@ def list_approvals(status="pending"):
 
 def approve(aid, decision):
     c = _conn()
+    row = c.execute("SELECT * FROM approval WHERE id=?", (aid,)).fetchone()
     c.execute("UPDATE approval SET status=?, decided_at=? WHERE id=?",
               ("approved" if decision == "approve" else "denied", _now(), aid))
+    job_id = row["job_id"] if row else None
     c.commit(); c.close()
+    if job_id and decision == "approve":
+        job = get_job(job_id)
+        if job and job.get("status") == "awaiting_approval":
+            leftover = [a for a in list_approvals("pending") if a.get("job_id") == job_id]
+            if not leftover:
+                update_job_status(job_id, "done")
+    return job_id
 
 # ---------- Agent 画像（跨任务聚合，回答"谁一直擅长什么"）----------
 def agent_profiles():

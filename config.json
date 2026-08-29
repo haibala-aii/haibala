@@ -12,5 +12,8 @@
     "codex":   { "type": "cli", "cmd": "codex",   "capability": ["coding", "image", "frontend"], "enabled": false },
     "dsh":     { "type": "cli", "cmd": "dsh",     "capability": ["coding", "agent", "frontend"], "enabled": false },
     "minimax": { "type": "api", "cmd": "minimax", "capability": ["text", "design"], "enabled": false }
+  },
+  "mcp_servers": {
+    "example_mcp": { "command": ["npx", "-y", "@modelcontextprotocol/server-everything"], "capability": ["coding", "text", "data"], "enabled": false }
   }
 }

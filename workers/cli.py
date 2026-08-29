@@ -30,6 +30,8 @@ class CLIWorker(WorkerPlugin):
 
         # 2) 执行命令（stdout 写到文件，不用管道捕获）
         cmd = [self.cmd] if isinstance(self.cmd, str) else list(self.cmd)
+        import time
+        t0 = time.time()
         with open(out_file, "w", encoding="utf-8") as o, open(ws / "err.log", "w", encoding="utf-8") as e:
             try:
                 subprocess.run(cmd + [str(in_file)], cwd=ws, stdout=o, stderr=e, timeout=600)
@@ -37,9 +39,10 @@ class CLIWorker(WorkerPlugin):
                 raise RuntimeError("CLI worker 超时")
             except FileNotFoundError:
                 raise RuntimeError(f"没有找到命令 {self.cmd}")
+        latency = round((time.time() - t0) * 1000)
 
         detail = out_file.read_text(encoding="utf-8") if out_file.exists() else "(无输出)"
         return Artifact(id=f"art-{uuid.uuid4().hex[:6]}", status="done",
-                        summary=f"[cli:{self.name}] {task[:40]}",
-                        cost_usd=0.0, latency_ms=0.0, detail=detail[:3000],
+                        summary=f"CLI 完成：{task[:40]}",
+                        cost_usd=0.0, latency_ms=latency, detail=detail[:3000],
                         meta={"name": self.name, "capability": self.capability})

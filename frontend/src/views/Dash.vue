@@ -1,81 +1,78 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { get, post } from '../api.js'
-const emit = defineEmits(['navigate'])
+import { ref, computed, inject, watch } from 'vue'
+import { statusMeta, budgetPct, decisionOf } from '../util.js'
 
-const jobs = ref([])
-const approvals = ref([])
-const cur = ref('')
-const title = ref(''); const desc = ref('')
+const shell = inject('shell')
+const tab = ref('all')
+const q = ref('')
+const sort = ref('new')
 
-const stats = computed(() => ({
-  running: jobs.value.filter(j => j.status === 'running' || j.status === 'awaiting_approval').length,
-  approvals: approvals.value.length,
+const jobs = computed(() => shell.jobs.value || [])
+const counts = computed(() => ({
+  all: jobs.value.length,
+  wait: jobs.value.filter(j => j.status === 'awaiting_decision' || j.status === 'awaiting_manual').length,
+  run: jobs.value.filter(j => j.status === 'running').length,
   done: jobs.value.filter(j => j.status === 'done').length,
-  avg: (() => { const e = jobs.value.flatMap(j => j.evals || []); return e.length ? (e.reduce((a, b) => a + b.weighted, 0) / e.length).toFixed(2) : '—' })(),
 }))
+const list = computed(() => {
+  let rows = jobs.value
+  if (tab.value === 'wait') rows = rows.filter(j => ['awaiting_decision','awaiting_manual','awaiting_approval'].includes(j.status))
+  if (tab.value === 'run') rows = rows.filter(j => j.status === 'running' || j.status === 'interrupted')
+  if (tab.value === 'done') rows = rows.filter(j => j.status === 'done' || j.status === 'rejected')
+  const s = q.value.trim()
+  if (s) rows = rows.filter(j => (j.title || '').includes(s) || (j.id || '').includes(s))
+  rows = [...rows]
+  if (sort.value === 'new') rows.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+  return rows
+})
 
-async function load() {
-  jobs.value = await get('/api/jobs')
-  approvals.value = await get('/api/approvals')
-}
-const job = computed(() => jobs.value.find(j => j.id === cur.value))
-const dec = computed(() => { try { return JSON.parse(job.value?.decision_json || '{}') } catch { return {} } })
-const feats = computed(() => { try { return JSON.parse(job.value?.features_json || '{}') } catch { return {} } })
-
-async function submit() {
-  if (!title.value.trim()) return
-  const r = await post('/api/run', { title: title.value.trim(), description: desc.value.trim() })
-  cur.value = r.job_id; title.value = ''; desc.value = ''
-  await load()
-}
-function sealStatus(s) { return s === 'done' ? {t:'已盖章',c:'ok'} : s === 'awaiting_approval' ? {t:'待盖章',c:'warn'} : {t:'处理中',c:'muted'} }
-onMounted(load)
+watch(() => shell.view.value, v => { if (v === 'dash') shell.load() })
 </script>
 
 <template>
   <div>
-    <div class="strip">
-      <div class="stat"><div class="k">进行中</div><div class="v">{{ stats.running }}</div></div>
-      <div class="stat warn"><div class="k">待盖章</div><div class="v">{{ stats.approvals }}</div></div>
-      <div class="stat ok"><div class="k">已完成</div><div class="v">{{ stats.done }}</div></div>
-      <div class="stat"><div class="k">平均分</div><div class="v">{{ stats.avg }}</div></div>
-      <div class="stat budget"><div class="k">订单预算</div><div class="bar"><i></i></div></div>
-    </div>
-    <div class="split">
-      <div class="paper queue">
-        <div class="q-h"><span>工单</span><span>点选查看</span></div>
-        <button v-for="j in jobs" :key="j.id" class="ticket" :class="{on: cur===j.id}" @click="cur=j.id">
-          <div class="t">{{ j.title }}</div>
-          <div class="m">{{ j.id }} · {{ j.task_type }} · {{ j.status }}</div>
-        </button>
-        <p v-if="!jobs.length" style="color:var(--muted);padding:8px">还没有工单，先新建。</p>
-      </div>
+    <div class="page-head">
       <div>
-        <article class="paper form-panel" v-if="job">
-          <div class="meta"><span>{{ job.id }}</span><span>{{ job.task_type }}</span></div>
-          <span class="seal" :class="sealStatus(job.status).c">{{ sealStatus(job.status).t }}</span>
-          <h1>{{ job.title }}</h1>
-          <div class="fields">
-            <div><span class="lab">主 worker</span>{{ dec.worker || '-' }}</div>
-            <div><span class="lab">拆分</span>{{ dec.split ? '是' : '否' }}</div>
-            <div><span class="lab">优先级</span>{{ (dec.priority_order || []).join(' → ') }}</div>
-            <div><span class="lab">预算</span>${{ dec.budget_usd || '-' }}</div>
-          </div>
-          <div class="reason">{{ dec.reason }}<div class="src">{{ dec.source }}</div></div>
-          <div class="chips"><span v-for="(v,k) in feats" :key="k">{{ k }}:{{ Array.isArray(v)?v.join('|'):v }}</span></div>
-          <div class="row">
-            <button class="btn sm" @click="emit('navigate','jobs')">打开任务</button>
-            <button class="btn sm" style="background:none;border:1px solid var(--line)" @click="emit('navigate','eval')">看评测</button>
-          </div>
-        </article>
-        <div class="panel" style="background:#fff;margin-top:14px">
-          <b>新建工单</b>
-          <input v-model="title" placeholder="标题，如：批量抠图小程序" style="margin-top:8px">
-          <textarea v-model="desc" rows="2" placeholder="需求（可选）"></textarea>
-          <button class="btn stamp" @click="submit">抽取特征并决策</button>
-        </div>
+        <h1>工单库</h1>
+        <p class="sub">整理接单、看决策、盖章后再派活。同一份考卷也可以拉去同场比试。</p>
+      </div>
+      <svg class="stamp-art" viewBox="0 0 120 88" aria-hidden="true">
+        <rect x="8" y="18" width="70" height="52" rx="8" fill="#f4f4f6" stroke="#e5e5e8"/>
+        <rect x="16" y="28" width="40" height="6" rx="3" fill="#d4d4d8"/>
+        <rect x="16" y="40" width="28" height="6" rx="3" fill="#e4e4e7"/>
+        <circle cx="92" cy="44" r="22" fill="none" stroke="#c81e5c" stroke-width="3"/>
+        <text x="92" y="49" text-anchor="middle" font-size="11" font-weight="700" fill="#c81e5c">章</text>
+      </svg>
+    </div>
+    <div class="actions">
+      <button class="btn pri" @click="shell.openCompose()">+ 新建工单</button>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap">
+      <div class="tabs" style="flex:1;margin-bottom:0">
+        <button :class="{on: tab==='all'}" @click="tab='all'">全部 {{ counts.all }}</button>
+        <button :class="{on: tab==='wait'}" @click="tab='wait'">待处理 {{ counts.wait }}</button>
+        <button :class="{on: tab==='run'}" @click="tab='run'">进行中 {{ counts.run }}</button>
+        <button :class="{on: tab==='done'}" @click="tab='done'">已完成 {{ counts.done }}</button>
+      </div>
+      <div class="utils" style="margin:0">
+        <input class="search" v-model="q" placeholder="搜索工单">
+        <select v-model="sort" style="width:auto;margin:0;border-radius:999px">
+          <option value="new">最近创建</option>
+        </select>
       </div>
     </div>
+    <div class="cards" style="margin-top:18px">
+      <button class="pcard" v-for="j in list" :key="j.id" @click="shell.openJob(j.id)">
+        <div class="thumb">
+          <span class="seal" :class="statusMeta(j.status).k">{{ statusMeta(j.status).t }}</span>
+        </div>
+        <div class="meta">
+          <div class="t">{{ j.title }}</div>
+          <div class="m">{{ j.task_type || '—' }} · {{ decisionOf(j).worker || '未派' }} · 花费 ${{ (j.spent_usd || 0).toFixed(2) }} / ${{ (j.budget_usd || 5) }}</div>
+          <div class="bar-track" style="margin-top:8px"><i :style="{width: budgetPct(j)+'%'}"></i></div>
+        </div>
+      </button>
+    </div>
+    <p v-if="!list.length" class="muted" style="padding:32px 0">这一栏还是空的。点「新建工单」出一份决策。</p>
   </div>
 </template>

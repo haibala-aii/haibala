@@ -30,6 +30,7 @@ class GraphState(TypedDict, total=False):
     best_weighted: float
     status: str
     approvals: list
+    dispatch_mode: str
 
 # 每个节点：在"副本"上调用阶段函数(避免直接改图状态)，返回变更字段
 def n_observe(state):
@@ -37,7 +38,10 @@ def n_observe(state):
 def n_decide(state):
     st = dict(state); do_decide(st); store.update_job_decision(state["job_id"], st["decision"]); return {"decision": st["decision"]}
 def n_dispatch(state):
-    st = dict(state); do_dispatch(st); return {"artifacts": st["artifacts"]}
+    st = dict(state)
+    st.setdefault("dispatch_mode", "benchmark")
+    do_dispatch(st)
+    return {"artifacts": st["artifacts"], "status": st.get("status"), "dispatch_mode": st.get("dispatch_mode")}
 def n_judge(state):
     st = dict(state); do_judge(st); return {"leaderboard": st["leaderboard"]}
 def n_learn(state):
@@ -58,7 +62,6 @@ def build_graph():
     g.add_edge("dispatch", "judge")
     g.add_edge("judge", "learn")
     g.add_edge("learn", END)
-    # MemorySaver = 按 thread_id 记住每个 job 的状态（同进程内可断点续跑）
     return g.compile(checkpointer=MemorySaver())
 
 def run_graph_task(title: str, description: str = "") -> dict:
@@ -66,8 +69,10 @@ def run_graph_task(title: str, description: str = "") -> dict:
     job_id = store.create_job(title, description, "", {}, {})
     app = build_graph()
     cfg = {"configurable": {"thread_id": job_id}}
-    state = app.invoke({"job_id": job_id, "title": title, "description": description}, cfg)
-    # 把最终特征/决策写回 job 表
+    state = app.invoke({
+        "job_id": job_id, "title": title, "description": description,
+        "dispatch_mode": "benchmark",
+    }, cfg)
     if state.get("features"):
         store.update_job_meta(job_id, state["features"]["task_type"], state["features"])
     return _summary(state)
