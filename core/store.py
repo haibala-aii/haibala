@@ -79,6 +79,17 @@ def init_db():
       status TEXT,                  -- pending / approved / denied
       decided_at TEXT
     );
+    CREATE TABLE IF NOT EXISTS job_state(
+      job_id TEXT PRIMARY KEY,
+      stage TEXT,                   -- 最近完成到的阶段
+      checkpoint_json TEXT,         -- 断点数据（特征/决策/已收集产物等）
+      updated_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS policy(
+      worker TEXT PRIMARY KEY,
+      weights_json TEXT,            -- 该 worker 的特征权重向量
+      seq INTEGER                   -- 已学习次数(用于判断是否形成有效策略)
+    );
     """)
     c.commit(); c.close()
 
@@ -99,6 +110,14 @@ def create_job(title, description, task_type, features, decision):
 
 def update_job_status(jid, status):
     c = _conn(); c.execute("UPDATE job SET status=? WHERE id=?", (status, jid)); c.commit(); c.close()
+
+def update_job_meta(jid, task_type, features):
+    c = _conn(); c.execute("UPDATE job SET task_type=?, features_json=? WHERE id=?",
+                           (task_type, json.dumps(features, ensure_ascii=False), jid)); c.commit(); c.close()
+
+def update_job_decision(jid, decision):
+    c = _conn(); c.execute("UPDATE job SET decision_json=? WHERE id=?",
+                           (json.dumps(decision, ensure_ascii=False), jid)); c.commit(); c.close()
 
 def list_jobs():
     c = _conn()
@@ -181,3 +200,50 @@ def agent_profiles():
     c.close()
     return [{"worker": r["worker"], "avg_score": round(r["avg"], 2),
              "samples": r["n"], "best_score": r["best"]} for r in rows]
+
+# ---------- 断点 / 状态机（M3）----------
+def save_job_state(job_id, stage, checkpoint: dict):
+    """写断点：记录 "做到哪个阶段" + 该阶段的中间数据。"""
+    c = _conn()
+    c.execute(
+        "INSERT INTO job_state(job_id, stage, checkpoint_json, updated_at) VALUES (?,?,?,?) "
+        "ON CONFLICT(job_id) DO UPDATE SET stage=excluded.stage, "
+        "checkpoint_json=excluded.checkpoint_json, updated_at=excluded.updated_at",
+        (job_id, stage, json.dumps(checkpoint, ensure_ascii=False), _now()))
+    c.commit(); c.close()
+
+def get_job_state(job_id):
+    c = _conn()
+    r = c.execute("SELECT * FROM job_state WHERE job_id=?", (job_id,)).fetchone()
+    c.close()
+    if not r:
+        return None
+    s = dict(r)
+    s["checkpoint"] = json.loads(s.pop("checkpoint_json") or "{}")
+    return s
+
+def clear_job_state(job_id):
+    c = _conn()
+    c.execute("DELETE FROM job_state WHERE job_id=?", (job_id,)); c.commit(); c.close()
+
+# ---------- 策略模型（M4 L2）----------
+def get_policy() -> dict:
+    c = _conn()
+    rows = c.execute("SELECT worker, weights_json FROM policy").fetchall()
+    c.close()
+    return {r["worker"]: json.loads(r["weights_json"]) for r in rows}
+
+def get_policy_count() -> int:
+    c = _conn()
+    r = c.execute("SELECT MAX(seq) AS s FROM policy").fetchone()
+    c.close()
+    return r["s"] if r and r["s"] else 0
+
+def save_policy(weights: dict, seq: int):
+    c = _conn()
+    for w, vec in weights.items():
+        c.execute(
+            "INSERT INTO policy(worker, weights_json, seq) VALUES (?,?,?) "
+            "ON CONFLICT(worker) DO UPDATE SET weights_json=excluded.weights_json, seq=excluded.seq",
+            (w, json.dumps(vec), seq))
+    c.commit(); c.close()

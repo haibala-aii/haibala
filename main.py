@@ -18,14 +18,33 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
-from core.pipeline import run_task
+from core.pipeline import run_task, resume_task, Interrupt
 from core import store
 
 ROOT = Path(__file__).parent
 
+def _run_or_graph(title, desc):
+    """产品路径：优先用 LangGraph(已安装)；否则回退手动状态机。"""
+    try:
+        from core.graph import run_graph_task
+        return run_graph_task(title, desc)
+    except ImportError:
+        return run_task(title, desc)
+
 # ---------------- 命令行运行一个任务 ----------------
-def cmd_run(title, desc):
-    result = run_task(title, desc)
+def cmd_run(title, desc, stop_after=None):
+    try:
+        result = run_task(title, desc, stop_after=stop_after)
+    except Interrupt as e:
+        result = {"interrupted": str(e)}
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return result
+
+def cmd_resume(job_id):
+    try:
+        result = resume_task(job_id)
+    except Exception as e:
+        result = {"error": str(e)}
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return result
 
@@ -48,10 +67,16 @@ class Handler(BaseHTTPRequestHandler):
             out = []
             for j in jobs:
                 evals = store.list_evaluations(j["id"])
-                out.append({**j, "evals": evals})
+                st = store.get_job_state(j["id"])
+                out.append({**j, "evals": evals,
+                            "stage": st["stage"] if st else None})
             self._json(200, out)
         elif self.path.startswith("/api/leaderboard"):
             self._json(200, store.agent_profiles())
+        elif self.path.startswith("/api/learning"):
+            from workers import registry
+            from learn.policy import policy_summary
+            self._json(200, policy_summary(registry.worker_names()))
         elif self.path.startswith("/api/audit"):
             self._json(200, store.list_audit())
         elif self.path.startswith("/api/approvals"):
@@ -68,7 +93,7 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(n) or b"{}")
             title = body.get("title", "未命名任务")
             desc = body.get("description", "")
-            result = run_task(title, desc)
+            result = _run_or_graph(title, desc)
             self._json(200, result)
         elif self.path == "/api/approve":
             n = int(self.headers.get("Content-Length", 0))
@@ -78,6 +103,14 @@ class Handler(BaseHTTPRequestHandler):
             store.approve(aid, decision)
             store.add_audit("user", "approval", f"{decision} 审批 #{aid}")
             self._json(200, {"ok": True})
+        elif self.path == "/api/resume":
+            n = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(n) or b"{}")
+            try:
+                result = resume_task(body.get("job_id", ""))
+            except Exception as e:
+                result = {"error": str(e)}
+            self._json(200, result)
         else:
             self._json(404, {"error": "not found"})
 
@@ -92,14 +125,18 @@ def cmd_serve(port=8090):
 
 # ---------------- 入口 ----------------
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="haibala M1")
+    ap = argparse.ArgumentParser(description="haibala M3")
     ap.add_argument("--run", help="跑一个任务")
     ap.add_argument("--desc", default="", help="任务详情")
+    ap.add_argument("--resume", help="从某个 job_id 断点续跑")
+    ap.add_argument("--stop-after", help="演示：在某个阶段故意中断（observe/decide/dispatch/judge/learn）")
     ap.add_argument("serve", nargs="?", const=True, help="启动本地界面")
     ap.add_argument("--port", type=int, default=8090)
     a = ap.parse_args()
 
-    if a.run:
-        cmd_run(a.run, a.desc)
+    if a.resume:
+        cmd_resume(a.resume)
+    elif a.run:
+        cmd_run(a.run, a.desc, a.stop_after)
     else:
         cmd_serve(a.port)

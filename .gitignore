@@ -25,3 +25,8 @@ ui-preview/_shots/
 Thumbs.db
 .idea/
 .vscode/
+.cursor/
+
+# Rust / Tauri
+target/
+src-tauri/target/

@@ -158,8 +158,9 @@ function renderJob(){
   const top=(ev[0]||{}).weighted;
   const subs=[]; const n=dec.n_workers||1;
   for(let i=1;i<=Math.min(n,4);i++)subs.push({t:"子任务"+i,w:dec.worker||"-",s:"done"});
-  $("#jobPanel").innerHTML=`<div class="meta">${j.id}</div>
+  $("#jobPanel").innerHTML=`<div class="meta">${j.id}${j.stage?" · 阶段:"+j.stage:""}</div>
     <h1 style="margin-top:2px">${esc(j.title)}</h1>
+    ${j.status==="interrupted"?`<div class="alert"><b>任务已中断（在 ${esc(j.stage||"某")} 阶段）</b><p class="desc">可从断点续跑，不重做已完成阶段。</p><div class="row"><button class="btn stamp sm" data-resume="${j.id}">从断点恢复</button></div></div>`:""}
     <h2>决策</h2><div class="fields">
       <div><span class="lab">worker</span>${esc(dec.worker||"-")}</div>
       <div><span class="lab">拆分</span>${dec.split?"是":"否"}</div>
@@ -176,12 +177,16 @@ function renderJob(){
 
 async function loadEval(){
   const lb=await api("/api/leaderboard");
+  const lr=await api("/api/learning");
+  const rules=(lr.predicts||[]).map(x=>`<tr><td>${esc(x.task_type)}</td><td><b>${esc(x.best_worker)}</b></td></tr>`).join("");
   $("#evalPanel").innerHTML=`<div class="paper panel"><h2>Rubric · 编码/图像（带锚点）</h2>
      <div class="chips"><span>功能正确性 · 0.40</span><span>代码质量 · 0.25</span><span>可复用性 · 0.20</span><span>成本/耗时 · 0.15</span></div></div>
    <div class="paper panel"><h2>Agent 画像 · 跨任务榜单</h2>
      <table><tr><th>worker</th><th>平均分</th><th>最好</th><th>样本数</th></tr>
      ${lb.map(x=>`<tr><td>${esc(x.worker)}</td><td><b>${x.avg_score}</b></td><td>${x.best_score}</td><td>${x.samples}</td></tr>`).join("")||"<tr><td colspan=4 style='color:var(--muted)'>暂无数据</td></tr>"}
-     </table></div>`;
+     </table></div>
+   <div class="paper panel"><h2>它学会了什么 · 模型：${esc(lr.model||"—")} / 学习次数 ${lr.history||0}${lr.accuracy!=null?" · 训练准确率 "+(lr.accuracy*100).toFixed(0)+"%":""}</h2>
+     ${rules?`<table><tr><th>任务类型</th><th>它认为该用</th></tr>${rules}</table>`:"<p style='color:var(--muted)'>还在学习（冷启动）。多跑几个任务后，这里会给出它自己学到的"什么类型→用谁"。</p>"}</div>`;
 }
 
 async function loadAudit(){
@@ -208,7 +213,10 @@ document.querySelectorAll("nav.tabs a").forEach(a=>a.addEventListener("click",()
 function show(id){document.querySelectorAll("nav.tabs a").forEach(t=>t.classList.toggle("on",t.dataset.v===id));
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on",v.id===id));
   if(id==="eval")loadEval(); if(id==="audit")loadAudit(); if(id==="approvals")loadApprovals(); if(id==="job")renderJob(); loadJobs();}
-document.body.addEventListener("click",e=>{const v=e.target.closest("[data-v]");if(v&&!e.target.closest("nav.tabs"))show(v.dataset.v);});
+document.body.addEventListener("click",async e=>{
+  const v=e.target.closest("[data-v]");if(v&&!e.target.closest("nav.tabs")){show(v.dataset.v);return;}
+  const rs=e.target.closest("[data-resume]");if(rs){await api("/api/resume",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({job_id:rs.dataset.resume})});await loadJobs();renderJob();loadAudit();}
+});
 loadJobs();
 </script>
 </body>
